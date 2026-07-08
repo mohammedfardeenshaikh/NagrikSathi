@@ -6,12 +6,11 @@ import api from '@/lib/axios';
 interface Complaint {
   id: number;
   title: string;
-  category: string;
-  location: string;
+  category_id?: number;
   status: string;
-  priority: string; // High, Medium, Low
-  summary?: string;
-  tags?: string[]; // array of strings
+  priority: string;
+  ai_summary?: string;
+  tags?: string[];
   created_at: string;
 }
 
@@ -23,290 +22,205 @@ interface Stats {
   high_priority: number;
 }
 
+const DEMO_COMPLAINTS: Complaint[] = [
+  { id: 1, title: 'Broken water pipeline on Main Street', status: 'In Progress', priority: 'High', ai_summary: 'A major leak in the primary water supply pipeline causing street flooding.', tags: ['water-leak', 'infrastructure'], created_at: new Date(Date.now() - 3600000 * 2).toISOString() },
+  { id: 2, title: 'Streetlights not working on Park Avenue', status: 'Pending', priority: 'Medium', ai_summary: 'Multiple streetlights are out for three days, making the lane unsafe at night.', tags: ['electricity', 'safety'], created_at: new Date(Date.now() - 3600000 * 12).toISOString() },
+  { id: 3, title: 'Garbage dump near community park', status: 'Resolved', priority: 'Low', ai_summary: 'Accumulated waste at colony park entrance has been cleared.', tags: ['sanitation', 'hygiene'], created_at: new Date(Date.now() - 3600000 * 24).toISOString() },
+  { id: 4, title: 'Pothole cluster near school gate', status: 'Pending', priority: 'High', ai_summary: 'Deep potholes in front of the school exit, posing risk to children.', tags: ['road-safety', 'pothole'], created_at: new Date(Date.now() - 3600000 * 36).toISOString() },
+];
+
+function timeAgo(dateStr: string) {
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
 export default function DashboardPage() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [stats, setStats] = useState<Stats>({
-    total: 0,
-    pending: 0,
-    in_progress: 0,
-    resolved: 0,
-    high_priority: 0,
-  });
+  const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, in_progress: 0, resolved: 0, high_priority: 0 });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [offline, setOffline] = useState(false);
 
-  const fetchDashboardData = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      setError('');
-      // Fetch stats and complaints in parallel
-      const [statsRes, complaintsRes] = await Promise.all([
-        api.get('/dashboard/stats').catch(() => ({
-          data: { total: 4, pending: 2, in_progress: 1, resolved: 1, high_priority: 2 },
-        })),
-        api.get('/complaints').catch(() => ({
-          data: [
-            {
-              id: 1,
-              title: 'Broken water pipeline on Main Street',
-              category: 'Water Supply',
-              location: 'Sector 4, Block C',
-              status: 'In Progress',
-              priority: 'High',
-              summary: 'A major leak in the primary water supply pipeline causing street flooding and low pressure.',
-              tags: ['water-leak', 'infrastructure', 'flooding'],
-              created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-            },
-            {
-              id: 2,
-              title: 'Streetlights not working',
-              category: 'Public Safety',
-              location: 'Park Avenue Lane 3',
-              status: 'Pending',
-              priority: 'Medium',
-              summary: 'Multiple street lights are out of order for the last three days, making the lane unsafe at night.',
-              tags: ['electricity', 'safety', 'streetlight'],
-              created_at: new Date(Date.now() - 3600000 * 12).toISOString(),
-            },
-            {
-              id: 3,
-              title: 'Garbage dump near community park',
-              category: 'Sanitation',
-              location: 'Greenwood Colony',
-              status: 'Resolved',
-              priority: 'Low',
-              summary: 'Accumulated waste disposal pile cleared from the entrance gate of the colony community park.',
-              tags: ['waste-management', 'sanitation', 'hygiene'],
-              created_at: new Date(Date.now() - 3600000 * 24).toISOString(),
-            },
-            {
-              id: 4,
-              title: 'Pothole cluster near school gate',
-              category: 'Road Infrastructure',
-              location: 'St. Mary School Road',
-              status: 'Pending',
-              priority: 'High',
-              summary: 'Deep potholes right in front of the school exit gate, posing a risk to school buses and children.',
-              tags: ['road-safety', 'pothole', 'accident-prone'],
-              created_at: new Date(Date.now() - 3600000 * 36).toISOString(),
-            },
-          ],
-        })),
+      setOffline(false);
+      const [statsRes, compRes] = await Promise.all([
+        api.get('/dashboard/stats').catch(() => ({ data: { total: 4, pending: 2, in_progress: 1, resolved: 1, high_priority: 2 } })),
+        api.get('/complaints').catch(() => ({ data: DEMO_COMPLAINTS })),
       ]);
-
       setStats(statsRes.data);
-      setComplaints(complaintsRes.data);
-    } catch (err: any) {
-      console.error(err);
-      setError('Could not connect to API server. Showing offline demonstration data.');
+      setComplaints(compRes.data);
+    } catch {
+      setStats({ total: 4, pending: 2, in_progress: 1, resolved: 1, high_priority: 2 });
+      setComplaints(DEMO_COMPLAINTS);
+      setOffline(true);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
+
+  const priorityClass = (p: string) =>
+    p === 'High' ? 'badge-high' : p === 'Medium' ? 'badge-medium' : 'badge-low';
+
+  const statusClass = (s: string) =>
+    s === 'Resolved' ? 'badge-resolved' : s === 'In Progress' ? 'badge-inprogress' : 'badge-pending';
+
+  const statCards = [
+    { label: 'Total', value: stats.total, color: 'text-gray-900', bg: 'bg-white', icon: '📋' },
+    { label: 'Pending', value: stats.pending, color: 'text-yellow-600', bg: 'bg-yellow-50', icon: '⏳' },
+    { label: 'In Progress', value: stats.in_progress, color: 'text-blue-600', bg: 'bg-blue-50', icon: '🔄' },
+    { label: 'Resolved', value: stats.resolved, color: 'text-green-600', bg: 'bg-green-50', icon: '✅' },
+    { label: 'High Priority', value: stats.high_priority, color: 'text-red-600', bg: 'bg-red-50', icon: '🔴' },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white relative overflow-hidden">
-      {/* Background Gradient Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-[#F7F8FA] flex flex-col">
+      {/* Blobs */}
+      <div className="fixed top-[-100px] right-[-60px] w-[350px] h-[350px] rounded-full bg-orange-200/30 blur-[100px] pointer-events-none z-0" />
+      <div className="fixed bottom-[-80px] left-[-60px] w-[300px] h-[300px] rounded-full bg-green-200/20 blur-[100px] pointer-events-none z-0" />
 
-      {/* Navigation Header */}
-      <header className="border-b border-slate-800/80 backdrop-blur bg-slate-950/60 sticky top-0 z-50">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-gray-100 shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/30">
-              NS
-            </div>
-            <span className="font-semibold text-lg tracking-tight bg-gradient-to-r from-slate-100 to-slate-300 bg-clip-text text-transparent">
-              NagrikSathi
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-bold text-white text-sm shadow-md shadow-orange-200">NS</div>
+            <span className="font-bold text-lg text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>NagrikSathi</span>
           </div>
-          <nav className="flex gap-6 text-sm font-medium text-slate-400">
-            <a href="/dashboard" className="text-indigo-400 hover:text-indigo-300 transition-colors">Dashboard</a>
-            <a href="/submit" className="hover:text-indigo-400 transition-colors">Submit Complaint</a>
+          <nav className="hidden md:flex gap-8 text-sm font-medium text-gray-500">
+            <a href="/" className="hover:text-orange-500 transition-colors">Home</a>
+            <a href="/dashboard" className="text-orange-500 font-semibold">Dashboard</a>
+            <a href="/submit" className="hover:text-orange-500 transition-colors">Submit</a>
           </nav>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="max-w-6xl mx-auto px-6 py-8 w-full flex-grow relative z-10 space-y-8">
-        {/* Upper Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-              Analytics Dashboard
-            </h1>
-            <p className="text-slate-400 text-sm mt-1">
-              Real-time monitoring of civic complaints and automated AI classification.
-            </p>
-          </div>
           <button
-            onClick={fetchDashboardData}
-            className="cursor-pointer bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-200 font-medium py-2 px-4 rounded-xl flex items-center gap-2 text-sm transition"
+            onClick={fetchData}
+            className="btn-secondary flex items-center gap-2 py-2 px-4 text-sm"
           >
-            <svg className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className={`h-4 w-4 ${loading ? 'animate-spin' : ''} text-gray-500`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18" />
             </svg>
             Refresh
           </button>
         </div>
+      </header>
 
-        {/* Info Banner if Offline */}
-        {error && (
-          <div className="bg-amber-950/30 border border-amber-800/40 p-4 rounded-xl text-amber-300 text-xs flex items-center justify-between">
-            <span>{error}</span>
-            <button onClick={() => setError('')} className="underline font-semibold hover:text-amber-200">Dismiss</button>
+      <main className="flex-1 relative z-10 max-w-6xl mx-auto w-full px-6 py-8 space-y-8">
+        {/* Page Title */}
+        <div className="animate-fade-in-up">
+          <h1 className="text-3xl font-extrabold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            Analytics Dashboard
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Real-time monitoring of civic complaints and AI classification.</p>
+        </div>
+
+        {/* Offline Banner */}
+        {offline && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 text-amber-700 text-sm flex items-center gap-2">
+            <span>⚠️</span> Showing demonstration data — could not connect to API server.
           </div>
         )}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {/* Card 1: Total */}
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 backdrop-blur flex flex-col justify-between">
-            <span className="text-slate-500 font-medium text-xs uppercase tracking-wider">Total Complaints</span>
-            <span className="text-3xl font-extrabold text-slate-100 mt-2">{stats.total}</span>
-          </div>
-          {/* Card 2: Pending */}
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 backdrop-blur flex flex-col justify-between">
-            <span className="text-slate-500 font-medium text-xs uppercase tracking-wider">Pending</span>
-            <span className="text-3xl font-extrabold text-yellow-500 mt-2">{stats.pending}</span>
-          </div>
-          {/* Card 3: In Progress */}
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 backdrop-blur flex flex-col justify-between">
-            <span className="text-slate-500 font-medium text-xs uppercase tracking-wider">In Progress</span>
-            <span className="text-3xl font-extrabold text-blue-400 mt-2">{stats.in_progress}</span>
-          </div>
-          {/* Card 4: Resolved */}
-          <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 backdrop-blur flex flex-col justify-between">
-            <span className="text-slate-500 font-medium text-xs uppercase tracking-wider">Resolved</span>
-            <span className="text-3xl font-extrabold text-emerald-400 mt-2">{stats.resolved}</span>
-          </div>
-          {/* Card 5: High Priority */}
-          <div className="bg-indigo-950/30 border border-indigo-800/40 rounded-2xl p-5 backdrop-blur flex flex-col justify-between col-span-2 md:col-span-1">
-            <span className="text-indigo-400 font-semibold text-xs uppercase tracking-wider">High Priority</span>
-            <span className="text-3xl font-extrabold text-indigo-300 mt-2">{stats.high_priority}</span>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 animate-fade-in-up" style={{ animationDelay: '80ms' }}>
+          {statCards.map((s, i) => (
+            <div key={s.label} className={`soft-card p-5 flex flex-col gap-2 ${i === 4 ? 'col-span-2 md:col-span-1' : ''}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{s.label}</span>
+                <span className="text-lg">{s.icon}</span>
+              </div>
+              <span className={`text-3xl font-extrabold ${s.color}`} style={{ fontFamily: 'Poppins, sans-serif' }}>
+                {loading ? '—' : s.value}
+              </span>
+            </div>
+          ))}
         </div>
 
-        {/* Main Grid: Graph Mockup & List */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Category Distribution Chart Mockup */}
-          <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur space-y-6">
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in-up" style={{ animationDelay: '160ms' }}>
+          {/* Category Chart */}
+          <div className="soft-card p-6 space-y-5">
             <div>
-              <h2 className="font-semibold text-base">Category Distribution</h2>
-              <p className="text-xs text-slate-500">Breakdown of reported issues by category</p>
+              <h2 className="font-bold text-gray-900 text-base" style={{ fontFamily: 'Poppins, sans-serif' }}>Category Breakdown</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Reported issues by department</p>
             </div>
-            
-            {/* Custom Styled CSS Chart */}
-            <div className="space-y-4 pt-2">
+            <div className="space-y-4">
               {[
-                { name: 'Water Supply', count: 1, percentage: '25%', color: 'bg-blue-500' },
-                { name: 'Sanitation', count: 1, percentage: '25%', color: 'bg-emerald-500' },
-                { name: 'Public Safety', count: 1, percentage: '25%', color: 'bg-yellow-500' },
-                { name: 'Road Infrastructure', count: 1, percentage: '25%', color: 'bg-indigo-500' },
-                { name: 'Electricity', count: 0, percentage: '0%', color: 'bg-violet-500' },
+                { name: 'Sanitation', pct: 35, color: 'bg-orange-400' },
+                { name: 'Road Infrastructure', pct: 28, color: 'bg-blue-400' },
+                { name: 'Water Supply', pct: 20, color: 'bg-green-400' },
+                { name: 'Public Safety', pct: 17, color: 'bg-purple-400' },
               ].map((item) => (
-                <div key={item.name} className="space-y-1">
+                <div key={item.name} className="space-y-1.5">
                   <div className="flex justify-between text-xs font-medium">
-                    <span className="text-slate-400">{item.name}</span>
-                    <span className="text-slate-200">{item.count} ({item.percentage})</span>
+                    <span className="text-gray-600">{item.name}</span>
+                    <span className="text-gray-900 font-semibold">{item.pct}%</span>
                   </div>
-                  <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden">
-                    <div className={`h-full ${item.color} rounded-full`} style={{ width: item.percentage }} />
+                  <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full ${item.color} rounded-full transition-all duration-700`} style={{ width: `${item.pct}%` }} />
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Complaints Table/List */}
+          {/* Complaints List */}
           <div className="lg:col-span-2 space-y-4">
-            <h2 className="font-semibold text-lg flex items-center gap-2">
-              Recent Submissions
-              {loading && (
-                <svg className="animate-spin h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-              )}
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                Recent Submissions
+                {loading && (
+                  <svg className="animate-spin h-4 w-4 text-orange-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                )}
+              </h2>
+              <a href="/submit" className="btn-primary text-xs py-2 px-4">+ New</a>
+            </div>
 
             <div className="space-y-4">
-              {complaints.map((comp) => (
+              {complaints.map((comp, i) => (
                 <div
                   key={comp.id}
-                  className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 backdrop-blur hover:border-slate-700/80 transition-all space-y-4"
+                  className="soft-card p-5 space-y-3 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 animate-fade-in-up"
+                  style={{ animationDelay: `${200 + i * 60}ms` }}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-indigo-400 font-medium px-2 py-0.5 rounded-full bg-indigo-950/50 border border-indigo-900/40">
-                          {comp.category}
-                        </span>
-                        <span className="text-xs text-slate-500">#{comp.id}</span>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="space-y-0.5 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase">#{comp.id}</span>
+                        <span className="text-[10px] text-gray-300">•</span>
+                        <span className="text-[10px] text-gray-400">{timeAgo(comp.created_at)}</span>
                       </div>
-                      <h3 className="font-bold text-base text-slate-100">{comp.title}</h3>
-                      <p className="text-xs text-slate-400 flex items-center gap-1">
-                        <svg className="h-3 w-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        {comp.location}
-                      </p>
+                      <h3 className="font-semibold text-gray-900 text-sm leading-snug">{comp.title}</h3>
                     </div>
-
-                    <div className="flex gap-2">
-                      {/* Priority Badge */}
-                      <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${
-                          comp.priority === 'High'
-                            ? 'bg-rose-950/40 border-rose-800/50 text-rose-400'
-                            : comp.priority === 'Medium'
-                            ? 'bg-yellow-950/40 border-yellow-800/50 text-yellow-400'
-                            : 'bg-slate-800 border-slate-700 text-slate-300'
-                        }`}
-                      >
-                        {comp.priority} Priority
+                    <div className="flex gap-2 flex-shrink-0">
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${priorityClass(comp.priority)}`}>
+                        {comp.priority}
                       </span>
-
-                      {/* Status Badge */}
-                      <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${
-                          comp.status === 'Resolved'
-                            ? 'bg-emerald-950/40 border-emerald-800/50 text-emerald-400'
-                            : comp.status === 'In Progress'
-                            ? 'bg-blue-950/40 border-blue-800/50 text-blue-400'
-                            : 'bg-yellow-950/40 border-yellow-850/40 text-yellow-400'
-                        }`}
-                      >
+                      <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${statusClass(comp.status)}`}>
                         {comp.status}
                       </span>
                     </div>
                   </div>
 
-                  {/* AI Summary Section */}
-                  {comp.summary && (
-                    <div className="bg-slate-950/50 rounded-xl p-4 border border-slate-900 text-xs text-slate-300 space-y-1">
-                      <div className="font-semibold text-slate-400 flex items-center gap-1.5">
-                        <svg className="h-3.5 w-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        AI Summary
+                  {comp.ai_summary && (
+                    <div className="bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5">
+                      <div className="text-[10px] font-bold text-orange-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                        ⚡ AI Summary
                       </div>
-                      <p>{comp.summary}</p>
+                      <p className="text-xs text-gray-600 leading-relaxed">{comp.ai_summary}</p>
                     </div>
                   )}
 
-                  {/* AI Tags Section */}
                   {comp.tags && comp.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                      <span className="text-[10px] uppercase font-bold text-slate-600 mr-1">Tags:</span>
+                    <div className="flex flex-wrap gap-1.5">
                       {comp.tags.map((t) => (
-                        <span key={t} className="text-[10px] text-slate-400 bg-slate-950 border border-slate-900 px-2 py-0.5 rounded-md">
+                        <span key={t} className="text-[10px] font-medium text-gray-500 bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-full">
                           #{t}
                         </span>
                       ))}
@@ -319,9 +233,8 @@ export default function DashboardPage() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/80 py-6 text-center text-xs text-slate-500">
-        <p>&copy; {new Date().getFullYear()} NagrikSathi. Empowering citizens through AI-assisted public grievance resolution.</p>
+      <footer className="border-t border-gray-100 bg-white py-5 text-center text-xs text-gray-400 mt-8">
+        © {new Date().getFullYear()} NagrikSathi — Empowering citizens through AI-assisted public grievance resolution.
       </footer>
     </div>
   );
