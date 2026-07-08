@@ -1,18 +1,20 @@
 import json
 import logging
 from typing import List, Dict, Any, Optional
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from backend.app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Configure the SDK if API key is provided on startup
+# Initialize client on module import if key is provided
+client = None
 if settings.GEMINI_API_KEY:
     try:
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        logger.info("Successfully configured google-generativeai client.")
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        logger.info("Successfully configured modern google-genai client.")
     except Exception as configure_err:
-        logger.error(f"Error configuring google-generativeai: {configure_err}")
+        logger.error(f"Error configuring modern google-genai: {configure_err}")
 else:
     logger.warning("GEMINI_API_KEY is not set. Using rule-based fallback logic for AI analysis.")
 
@@ -64,7 +66,8 @@ class AIService:
         """
         Queries Gemini API to analyze complaint text and return summary, priority, reason, and tags in structured JSON.
         """
-        if not settings.GEMINI_API_KEY:
+        global client
+        if not settings.GEMINI_API_KEY or client is None:
             return cls._get_fallback_analysis(title, description, category)
 
         prompt = f"""
@@ -83,10 +86,12 @@ class AIService:
         """
 
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            response = model.generate_content(
-                prompt,
-                generation_config={"response_mime_type": "application/json"}
+            response = client.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json"
+                )
             )
             
             # Parse structured JSON output
