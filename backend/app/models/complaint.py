@@ -17,6 +17,14 @@ class Complaint(Base):
     priority_reason = Column(Text, nullable=True)
     tags = Column(JSON, nullable=True)
     status = Column(String(50), nullable=False, default="Pending")
+    
+    # New tracking fields
+    ward = Column(String(100), nullable=True, default="Ward 4")
+    district = Column(String(100), nullable=True, default="Rampur")
+    assigned_officer = Column(String(100), nullable=True)
+    internal_notes = Column(Text, nullable=True)
+    escalated = Column(Integer, nullable=False, default=0) # 0 = No, 1 = Yes
+    
     created_at = Column(DateTime, server_default=func.now())
 
     user = relationship("User", back_populates="complaints")

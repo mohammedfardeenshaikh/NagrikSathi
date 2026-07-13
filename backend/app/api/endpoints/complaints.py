@@ -51,7 +51,7 @@ def create_complaint(complaint_in: ComplaintCreate, db: Session = Depends(get_db
         category=category.name
     )
 
-    # 5. Insert Complaint
+    # 5. Insert Complaint with ward and district passed by citizen
     db_complaint = Complaint(
         user_id=complaint_in.user_id,
         category_id=complaint_in.category_id,
@@ -62,7 +62,12 @@ def create_complaint(complaint_in: ComplaintCreate, db: Session = Depends(get_db
         priority=ai_analysis["priority"],
         priority_reason=ai_analysis["priority_reason"],
         tags=ai_analysis["tags"],
-        status="Pending"
+        status="Pending",
+        ward=complaint_in.ward or "Ward 4",
+        district=complaint_in.district or "Rampur",
+        assigned_officer=None,
+        internal_notes=None,
+        escalated=0
     )
 
     db.add(db_complaint)

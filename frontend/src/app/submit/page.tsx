@@ -9,8 +9,9 @@ interface SubCategory { id: number; name: string; category_id: number; }
 export default function SubmitComplaintPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [subcategories, setSubcategories] = useState<SubCategory[]>([]);
-  const [formData, setFormData] = useState({ title: '', description: '', category_id: '', subcategory_id: '' });
+  const [formData, setFormData] = useState({ title: '', description: '', category_id: '', subcategory_id: '', ward: 'Ward 4', district: 'Rampur' });
   const [status, setStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error'; message: string; result?: any }>({ type: 'idle', message: '' });
+  const [submittedId, setSubmittedId] = useState<number | null>(null);
 
   useEffect(() => {
     api.get('/categories').then((res) => {
@@ -41,10 +42,13 @@ export default function SubmitComplaintPage() {
         subcategory_id: formData.subcategory_id ? parseInt(formData.subcategory_id) : null,
         title: formData.title,
         description: formData.description,
+        ward: formData.ward,
+        district: formData.district,
       };
       const response = await api.post('/complaints/', payload);
-      setStatus({ type: 'success', message: `Complaint #${response.data.id} submitted successfully!`, result: response.data });
-      setFormData((f) => ({ ...f, title: '', description: '', subcategory_id: '' }));
+      setSubmittedId(response.data.id);
+      setStatus({ type: 'success', message: 'Grievance submitted successfully!', result: response.data });
+      setFormData((f) => ({ ...f, title: '', description: '', subcategory_id: '', ward: 'Ward 4', district: 'Rampur' }));
     } catch (err: any) {
       setStatus({ type: 'error', message: err.response?.data?.detail || 'Submission failed. Is the backend running?' });
     }
@@ -66,10 +70,12 @@ export default function SubmitComplaintPage() {
             <div className="h-9 w-9 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center font-bold text-white text-sm shadow-md shadow-orange-200">NS</div>
             <span className="font-bold text-lg text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>NagrikSathi</span>
           </div>
-          <nav className="hidden md:flex gap-8 text-sm font-medium text-gray-500">
+          <nav className="hidden md:flex gap-6 text-sm font-medium text-gray-500">
             <a href="/" className="hover:text-orange-500 transition-colors">Home</a>
-            <a href="/dashboard" className="hover:text-orange-500 transition-colors">Dashboard</a>
-            <a href="/submit" className="text-orange-500 font-semibold">Submit</a>
+            <a href="/submit" className="text-orange-500 font-semibold">Submit Complaint</a>
+            <a href="/track" className="hover:text-orange-500 transition-colors">Track Complaint</a>
+            <a href="/about" className="hover:text-orange-500 transition-colors">About</a>
+            <a href="/contact" className="hover:text-orange-500 transition-colors">Contact</a>
           </nav>
         </div>
       </header>
@@ -89,139 +95,188 @@ export default function SubmitComplaintPage() {
           </p>
         </div>
 
-        {/* Form Card */}
-        <div className="glass-card p-8 space-y-6 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-          <form onSubmit={handleSubmit} className="space-y-5">
-
-            {/* Title */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="title">
-                Complaint Title <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="title"
-                type="text"
-                placeholder="e.g. Broken water pipeline on Main Street"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-900 placeholder:text-gray-300 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition text-sm"
-                required
-              />
+        {/* Form Card / Success Card */}
+        {submittedId ? (
+          <div className="glass-card p-8 space-y-6 text-center animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+            <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto text-xl font-bold">
+              ✓
             </div>
-
-            {/* Category & Subcategory */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="category">Category</label>
-                <select
-                  id="category"
-                  value={formData.category_id}
-                  onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition text-sm"
-                >
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
-                  ))}
-                </select>
+            <div className="space-y-3">
+              <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                Grievance Submitted Successfully!
+              </h2>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed">
+                Your complaint has been successfully registered and assigned the unique tracking number:
+              </p>
+              <div className="inline-block bg-orange-50 border border-orange-100 rounded-2xl px-6 py-2.5 my-1">
+                <span className="text-base font-extrabold text-orange-600">Complaint ID: #{submittedId}</span>
               </div>
+              <p className="text-xs text-slate-550 max-w-sm mx-auto leading-relaxed">
+                Please make a note of this ID. You can track the live triage, priority classification, and municipal status updates at any time.
+              </p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              <a 
+                href={`/track?id=${submittedId}`} 
+                className="btn-primary text-xs py-2.5 px-6 flex items-center justify-center"
+              >
+                Track Live Status →
+              </a>
+              <button 
+                onClick={() => {
+                  setSubmittedId(null);
+                  setStatus({ type: 'idle', message: '' });
+                }}
+                className="btn-secondary text-xs py-2.5 px-6 cursor-pointer"
+              >
+                File Another Complaint
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="glass-card p-8 space-y-6 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+            <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Title */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="subcategory">
-                  Subcategory <span className="text-gray-300">(optional)</span>
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="title">
+                  Complaint Title <span className="text-red-500">*</span>
                 </label>
-                <select
-                  id="subcategory"
-                  value={formData.subcategory_id}
-                  onChange={(e) => setFormData({ ...formData, subcategory_id: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition text-sm"
-                >
-                  <option value="">— None —</option>
-                  {subcategories.map((sub) => (
-                    <option key={sub.id} value={sub.id}>{sub.name}</option>
-                  ))}
-                </select>
+                <input
+                  id="title"
+                  type="text"
+                  placeholder="e.g. Broken water pipeline on Main Street"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-900 placeholder:text-gray-300 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition text-sm"
+                  required
+                />
               </div>
-            </div>
 
-            {/* Description */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="description">
-                Description <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                id="description"
-                rows={5}
-                placeholder="Describe the issue in detail. Our AI will analyze this text to extract key facts, urgency, and routing tags..."
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-900 placeholder:text-gray-300 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition resize-none text-sm"
-                required
-              />
-            </div>
-
-            {/* Status Banner */}
-            {status.type !== 'idle' && (
-              <div className={`rounded-2xl p-4 text-sm border transition-all ${
-                status.type === 'loading' ? 'bg-orange-50 border-orange-100 text-orange-700' :
-                status.type === 'success' ? 'bg-green-50 border-green-100 text-green-700' :
-                'bg-red-50 border-red-100 text-red-600'
-              }`}>
-                <div className="flex items-center gap-2 font-medium mb-1">
-                  {status.type === 'loading' && (
-                    <svg className="animate-spin h-4 w-4 text-orange-500 shrink-0" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                  )}
-                  {status.type === 'success' && <span className="text-green-500">✓</span>}
-                  {status.type === 'error' && <span className="text-red-500">✕</span>}
-                  {status.message}
+              {/* Category & Subcategory */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="category">Category</label>
+                  <select
+                    id="category"
+                    value={formData.category_id}
+                    onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition text-sm"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
                 </div>
-
-                {/* AI Result Card */}
-                {status.type === 'success' && status.result && (
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-white rounded-xl p-3 border border-green-100">
-                      <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">AI Summary</div>
-                      <p className="text-gray-700 leading-relaxed">{status.result.ai_summary}</p>
-                    </div>
-                    <div className="bg-white rounded-xl p-3 border border-green-100">
-                      <div className="text-[10px] uppercase font-bold text-gray-400 mb-1">Priority</div>
-                      <span className="font-bold text-sm" style={{ color: priorityColor(status.result.priority) }}>
-                        {status.result.priority}
-                      </span>
-                      <p className="text-gray-500 text-[11px] mt-1 leading-relaxed">{status.result.priority_reason}</p>
-                    </div>
-                    {status.result.tags?.length > 0 && (
-                      <div className="col-span-2 bg-white rounded-xl p-3 border border-green-100">
-                        <div className="text-[10px] uppercase font-bold text-gray-400 mb-2">Tags</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {status.result.tags.map((tag: string) => (
-                            <span key={tag} className="bg-orange-50 text-orange-600 border border-orange-100 px-2.5 py-0.5 rounded-full text-[11px] font-medium">
-                              #{tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="subcategory">
+                    Subcategory <span className="text-gray-300">(optional)</span>
+                  </label>
+                  <select
+                    id="subcategory"
+                    value={formData.subcategory_id}
+                    onChange={(e) => setFormData({ ...formData, subcategory_id: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition text-sm"
+                  >
+                    <option value="">— None —</option>
+                    {subcategories.map((sub) => (
+                      <option key={sub.id} value={sub.id}>{sub.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            )}
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={status.type === 'loading'}
-              className="btn-primary w-full py-3.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {status.type === 'loading' ? 'Analyzing with AI...' : 'Submit Complaint'}
-            </button>
-          </form>
-        </div>
+              {/* Ward & District */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="ward">Ward</label>
+                  <select
+                    id="ward"
+                    value={formData.ward}
+                    onChange={(e) => setFormData({ ...formData, ward: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition text-sm"
+                  >
+                    <option value="Ward 3">Ward 3</option>
+                    <option value="Ward 4">Ward 4</option>
+                    <option value="Ward 7">Ward 7</option>
+                    <option value="Ward 12">Ward 12</option>
+                    <option value="Ward 15">Ward 15</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="district">District</label>
+                  <select
+                    id="district"
+                    value={formData.district}
+                    onChange={(e) => setFormData({ ...formData, district: e.target.value })}
+                    className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-700 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition text-sm"
+                  >
+                    <option value="Rampur">Rampur</option>
+                    <option value="Patna">Patna</option>
+                    <option value="Gaya">Gaya</option>
+                    <option value="Muzaffarpur">Muzaffarpur</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider" htmlFor="description">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="description"
+                  rows={5}
+                  placeholder="Describe the issue in detail. Our AI will analyze this text to extract key facts, urgency, and routing tags..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-3 text-gray-900 placeholder:text-gray-300 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition resize-none text-sm"
+                  required
+                />
+              </div>
+
+              {/* Status Banner */}
+              {status.type !== 'idle' && (
+                <div className={`rounded-2xl p-4 text-sm border transition-all ${
+                  status.type === 'loading' ? 'bg-orange-50 border-orange-100 text-orange-700' :
+                  status.type === 'success' ? 'bg-green-50 border-green-100 text-green-700' :
+                  'bg-red-50 border-red-100 text-red-600'
+                }`}>
+                  <div className="flex items-center gap-2 font-medium">
+                    {status.type === 'loading' && (
+                      <svg className="animate-spin h-4 w-4 text-orange-500 shrink-0" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    )}
+                    {status.type === 'success' && <span className="text-green-500">✓</span>}
+                    {status.type === 'error' && <span className="text-red-500">✕</span>}
+                    {status.message}
+                  </div>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={status.type === 'loading'}
+                className="btn-primary w-full py-3.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {status.type === 'loading' ? 'Analyzing with AI...' : 'Submit Complaint'}
+              </button>
+            </form>
+          </div>
+        )}
       </main>
 
-      <footer className="border-t border-gray-100 bg-white py-5 text-center text-xs text-gray-400">
-        © {new Date().getFullYear()} NagrikSathi — Empowering citizens through AI-assisted public grievance resolution.
+      <footer className="border-t border-gray-100 bg-white py-8 text-center text-xs text-gray-400 flex flex-col items-center gap-3">
+        <div>
+          © {new Date().getFullYear()} NagrikSathi — Empowering citizens through AI-assisted public grievance resolution.
+        </div>
+        <div className="flex gap-4">
+          <a href="/mp-dashboard" className="text-slate-400 hover:text-orange-500 transition-colors font-medium">MP Officer Portal</a>
+        </div>
       </footer>
     </div>
   );

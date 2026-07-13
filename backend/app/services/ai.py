@@ -30,13 +30,19 @@ class AIService:
         
         desc_lower = description.lower()
         priority = "Low"
-        high_keywords = ["hazard", "accident", "injured", "danger", "broken pipe", "flooding", "sparking", "emergency"]
+        critical_keywords = ["bridge collapse", "water contamination", "hospital emergency", "collapse", "contamination", "leakage near hospital"]
+        high_keywords = ["hazard", "accident", "injured", "danger", "broken pipe", "flooding", "sparking", "emergency", "pothole"]
         medium_keywords = ["not working", "blocked", "garbage", "leak", "darkness", "out of order"]
         
-        for kw in high_keywords:
+        for kw in critical_keywords:
             if kw in desc_lower:
-                priority = "High"
+                priority = "Critical"
                 break
+        if priority == "Low":
+            for kw in high_keywords:
+                if kw in desc_lower:
+                    priority = "High"
+                    break
         if priority == "Low":
             for kw in medium_keywords:
                 if kw in desc_lower:
@@ -74,7 +80,7 @@ class AIService:
         Analyze this civic complaint.
         Generate a JSON object with the following fields:
         - 'summary': A concise one-sentence summary of the grievance.
-        - 'priority': The urgency priority level (either 'Low', 'Medium', or 'High') based on hazard, public safety, and road risk.
+        - 'priority': The urgency priority level (either 'Low', 'Medium', 'High', or 'Critical') based on hazard, public safety, and road risk.
         - 'priority_reason': A brief explanation of why this priority level was assigned.
         - 'tags': A list of 2-5 relevant keyword tags for routing.
 
@@ -105,7 +111,7 @@ class AIService:
                     
             # Normalize priority value
             priority = str(result["priority"]).capitalize()
-            if priority not in ["Low", "Medium", "High"]:
+            if priority not in ["Low", "Medium", "High", "Critical"]:
                 priority = "Medium"
             result["priority"] = priority
             

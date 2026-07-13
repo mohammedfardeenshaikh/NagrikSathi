@@ -5,6 +5,7 @@ from backend.app.core.db import engine, Base, SessionLocal
 from backend.app.api.api import api_router
 from backend.app.models.user import User
 from backend.app.models.category import Category, SubCategory
+from backend.app.models.mp_settings import MPSettings
 from sqlalchemy import text
 import logging
 

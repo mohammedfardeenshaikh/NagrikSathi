@@ -20,10 +20,12 @@ export default function LandingPage() {
               NagrikSathi
             </span>
           </div>
-          <nav className="hidden md:flex gap-8 text-sm font-medium text-gray-500">
+          <nav className="hidden md:flex gap-6 text-sm font-medium text-gray-500">
             <a href="/" className="text-orange-500 font-semibold">Home</a>
-            <a href="/dashboard" className="hover:text-orange-500 transition-colors">Dashboard</a>
-            <a href="/submit" className="hover:text-orange-500 transition-colors">Submit</a>
+            <a href="/submit" className="hover:text-orange-500 transition-colors">Submit Complaint</a>
+            <a href="/track" className="hover:text-orange-500 transition-colors">Track Complaint</a>
+            <a href="/about" className="hover:text-orange-500 transition-colors">About</a>
+            <a href="/contact" className="hover:text-orange-500 transition-colors">Contact</a>
           </nav>
           <a
             href="/submit"
@@ -61,9 +63,6 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 animate-fade-in-up" style={{ animationDelay: '240ms' }}>
             <a href="/submit" className="btn-primary px-8 py-3.5 text-sm">
               Submit a Complaint →
-            </a>
-            <a href="/dashboard" className="btn-secondary px-8 py-3.5 text-sm">
-              View Dashboard
             </a>
           </div>
 
@@ -130,8 +129,13 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-100 bg-white py-6 text-center text-xs text-gray-400">
-        © {new Date().getFullYear()} NagrikSathi — Empowering citizens through AI-assisted public grievance resolution.
+      <footer className="border-t border-gray-100 bg-white py-8 text-center text-xs text-gray-400 flex flex-col items-center gap-3">
+        <div>
+          © {new Date().getFullYear()} NagrikSathi — Empowering citizens through AI-assisted public grievance resolution.
+        </div>
+        <div className="flex gap-4">
+          <a href="/mp-dashboard" className="text-slate-400 hover:text-orange-500 transition-colors font-medium">MP Officer Portal</a>
+        </div>
       </footer>
     </div>
   );
